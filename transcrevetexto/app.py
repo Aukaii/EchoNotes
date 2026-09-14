@@ -10,8 +10,8 @@ from pathlib import Path
 
 from .audio_capture import LoopbackRecorder
 from .config import Config
+from .llm_local import SummarizerUnavailableError, summarize
 from .obsidian_writer import TranscriptSegment, build_markdown
-from .summarizer import SummarizerUnavailableError, summarize
 from .transcriber import Transcriber
 from .vad import SegmentChunker
 
@@ -87,13 +87,9 @@ class TranscriptionSession:
         transcript_text = "\n".join(seg.text for seg in self._segments)
 
         summary: str | None = None
-        self.on_status("Gerando resumo (Ollama)...")
+        self.on_status("Gerando resumo (modelo local)...")
         try:
-            summary = summarize(
-                transcript_text,
-                model=self.config.ollama_model,
-                base_url=self.config.ollama_url,
-            )
+            summary = summarize(transcript_text, self.config)
         except SummarizerUnavailableError as exc:
             summary = None
             self.on_status(str(exc))

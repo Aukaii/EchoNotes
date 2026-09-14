@@ -2,11 +2,26 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
 APP_DIR = Path.home() / ".transcrevetexto"
 CONFIG_PATH = APP_DIR / "config.json"
+MODELS_DIR = APP_DIR / "models"
+
+# Variantes disponíveis do modelo de resumo local (llama.cpp), da mais leve à
+# mais precisa. Baixadas automaticamente na primeira vez que forem usadas.
+LLM_VARIANTS = {
+    "leve (1.5B, mais rápido)": {
+        "repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+        "file": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+    },
+    "equilibrado (3B, recomendado)": {
+        "repo": "Qwen/Qwen2.5-3B-Instruct-GGUF",
+        "file": "qwen2.5-3b-instruct-q4_k_m.gguf",
+    },
+}
+DEFAULT_LLM_VARIANT = "equilibrado (3B, recomendado)"
 
 
 @dataclass
@@ -16,20 +31,22 @@ class Config:
     whisper_device: str = "cpu"
     whisper_compute_type: str = "int8"
     language: str = "pt"
-    ollama_model: str = "llama3.1"
-    ollama_url: str = "http://localhost:11434"
+    llm_variant: str = DEFAULT_LLM_VARIANT
     sample_rate: int = 16000
     silence_ms_to_close_segment: int = 700
     min_segment_ms: int = 300
     energy_threshold: float = 0.010
     tags: list[str] = field(default_factory=lambda: ["transcricao", "aula"])
+    auto_update_check: bool = True
 
     @classmethod
     def load(cls) -> "Config":
         if CONFIG_PATH.exists():
             try:
                 data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-                return cls(**{**asdict(cls()), **data})
+                known = {f.name for f in fields(cls)}
+                filtered = {k: v for k, v in data.items() if k in known}
+                return cls(**{**asdict(cls()), **filtered})
             except (json.JSONDecodeError, TypeError):
                 return cls()
         return cls()

@@ -5,9 +5,12 @@ computador (navegador, videoconferência, players, qualquer app), transcreve
 em tempo real e, ao final, gera automaticamente uma nota `.md` resumida e
 compatível com o **Obsidian**.
 
-100% local: a transcrição roda com [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
-e o resumo com um modelo local via [Ollama](https://ollama.com) — nenhum áudio
-ou texto é enviado para a internet, e não há custo de API.
+100% local e gratuito: a transcrição roda com
+[faster-whisper](https://github.com/SYSTRAN/faster-whisper) e o resumo com um
+modelo de linguagem pequeno rodando **dentro do próprio app**
+(`llama.cpp`/`llama-cpp-python`) — nenhum áudio ou texto é enviado para a
+internet, não há custo de API e **não é preciso instalar nada separado**
+(nada de instalar Python, Ollama, etc. na versão empacotada).
 
 ## Como funciona
 
@@ -17,73 +20,85 @@ ou texto é enviado para a internet, e não há custo de API.
 2. **Segmentação**: um detector de silêncio (VAD por energia) agrupa o áudio
    em frases/trechos de fala.
 3. **Transcrição**: cada trecho é transcrito localmente com faster-whisper
-   (modelo Whisper otimizado para CPU/GPU) e aparece na tela em tempo real.
+   e aparece na tela em tempo real.
 4. **Resumo**: ao clicar em "Parar e salvar", a transcrição completa é
-   enviada para um modelo local rodando no Ollama, que gera um resumo
-   estruturado em Markdown.
+   resumida por um LLM local (Qwen 2.5, quantizado, roda em CPU).
 5. **Arquivo final**: um `.md` com front matter YAML (título, data, tags) +
    resumo + transcrição completa com timestamps é salvo na pasta que você
    escolher — aponte direto para uma pasta dentro do seu vault do Obsidian.
 
-## Pré-requisitos (Windows 10 ou superior)
+Na **primeira execução**, o próprio app baixa o modelo de resumo (~1-2 GB,
+uma vez só, com barra de progresso) e prepara o modelo de transcrição.
+Depois disso funciona 100% offline.
 
-1. **Python 3.10+** — instale pelo [python.org](https://www.python.org/downloads/windows/)
-   (marque "Add python.exe to PATH" no instalador). *Não* use a versão da
-   Microsoft Store: ela costuma vir sem o Tkinter, usado na interface gráfica.
-2. **Ollama** — instale em [ollama.com/download](https://ollama.com/download)
-   e baixe um modelo, por exemplo:
-   ```powershell
-   ollama pull llama3.1
-   ```
-   Deixe o Ollama rodando em segundo plano (ele inicia um serviço local
-   automaticamente após a instalação).
+## Usando a versão pronta (recomendado)
 
-## Instalação do app
+1. Baixe `transcreveTexto.exe` na aba
+   [Releases](https://github.com/Aukaii/transcreveTexto/releases) deste
+   repositório e execute.
+2. Na primeira vez, aguarde o download automático dos modelos (tela de
+   progresso).
+3. Pronto — a interface principal só tem: título da aula, pasta de destino e
+   o botão **Iniciar/Parar gravação**. Configurações técnicas (tamanho dos
+   modelos, sensibilidade do detector de fala) ficam em "⚙ Configurações".
+
+O app verifica sozinho, periodicamente, se há uma versão nova publicada no
+GitHub e mostra um aviso com um botão "Atualizar agora" — que baixa e troca
+o `.exe` automaticamente.
+
+> **Aviso sobre o instalador:** como o `.exe` não é assinado digitalmente
+> (certificados de assinatura de código são pagos), o Windows SmartScreen ou
+> o antivírus podem exibir um aviso na primeira execução de cada versão nova.
+> Isso é uma limitação de distribuir um app gratuito sem certificado — não
+> tem como evitar sem comprar um certificado de assinatura.
+
+## Rodando a partir do código-fonte (para desenvolvimento)
 
 ```powershell
-git clone <este-repositorio>
+git clone https://github.com/Aukaii/transcreveTexto
 cd transcreveTexto
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-Na primeira execução, o `faster-whisper` baixa automaticamente o modelo
-escolhido (ex.: `small`, ~250 MB) e o guarda em cache local.
-
-## Uso
-
-```powershell
 python run.py
 ```
 
-Na janela:
+Use **Python 3.10+ do python.org** (marque "Add python.exe to PATH" no
+instalador). Evite a versão da Microsoft Store: ela costuma vir sem o
+Tkinter, usado na interface gráfica. Rodando a partir do código-fonte, a
+atualização automática só avisa que há versão nova — a troca de arquivo só
+funciona no `.exe` empacotado (use `git pull` para atualizar).
 
-1. Defina o **título da aula**.
-2. Escolha a **pasta de destino** (idealmente uma pasta dentro do seu vault
-   do Obsidian).
-3. Escolha o **modelo Whisper** (`small` é um bom equilíbrio entre
-   velocidade e precisão em CPU; `medium`/`large-v3` são mais precisos mas
-   exigem GPU NVIDIA para rodar em tempo real confortavelmente).
-4. Clique em **Iniciar gravação** e reproduza o vídeo/aula normalmente no
-   navegador (ou qualquer outro app).
-5. Ao terminar, clique em **Parar e salvar** — o app gera o resumo e salva o
-   arquivo `.md`.
+## Gerando o `.exe` você mesmo
 
-## Limitações conhecidas / próximos passos
+Um push de tag `vX.Y.Z` neste repositório dispara o workflow
+`.github/workflows/build-windows.yml`, que compila o `.exe` num runner
+Windows do GitHub Actions e publica como Release automaticamente (é assim
+que o auto-updater encontra novas versões). Para gerar localmente:
+
+```powershell
+pip install pyinstaller
+pyinstaller --onefile --noconsole --name transcreveTexto run.py
+```
+
+O executável fica em `dist/transcreveTexto.exe`.
+
+## Limitações conhecidas
 
 - O VAD por energia é simples (baseado em volume); em áudio com música de
   fundo alta ou volume muito baixo pode cortar frases de forma imprecisa.
-  Ajustável em `transcrevetexto/config.py` (`energy_threshold`).
+  Ajustável em "⚙ Configurações" (sensibilidade de detecção de fala).
 - Não há separação de falantes (diarização) — a transcrição não identifica
   "quem" está falando.
+- O LLM local de resumo (Qwen 2.5, 1.5B ou 3B) é bem mais limitado que
+  modelos como GPT/Claude; a qualidade do resumo reflete isso. É possível
+  trocar o tamanho do modelo em "⚙ Configurações".
 - CPUs mais fracas podem transcrever com atraso perceptível usando modelos
-  maiores que `small`; se tiver GPU NVIDIA, mude `whisper_device` para
-  `"cuda"` e `whisper_compute_type` para `"float16"` em
-  `~/.transcrevetexto/config.json` (gerado após o primeiro uso) para ganho
-  de velocidade.
-- Para gerar um `.exe` standalone (sem precisar instalar Python), use o
-  [PyInstaller](https://pyinstaller.org/): `pyinstaller --onefile --noconsole run.py`.
+  Whisper maiores que `small`. Com GPU NVIDIA, é possível editar
+  `~/.transcrevetexto/config.json` (gerado após o primeiro uso) para usar
+  `"whisper_device": "cuda"` e `"whisper_compute_type": "float16"`.
+- A atualização automática exige que o Release no GitHub contenha um arquivo
+  chamado exatamente `transcreveTexto.exe` (é o nome usado pelo workflow).
 
 ## Rodando os testes
 
