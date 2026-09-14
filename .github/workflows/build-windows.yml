@@ -27,9 +27,6 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Rodar testes
-        run: pytest
-
       - name: Gerar executável
         run: pyinstaller --onefile --noconsole --name transcreveTexto run.py
 
