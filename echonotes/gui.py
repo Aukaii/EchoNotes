@@ -81,7 +81,7 @@ class FirstRunDialog(tk.Toplevel):
 
     def __init__(self, parent: "MainWindow", on_done) -> None:
         super().__init__(parent.root)
-        self.title("Preparando o transcreveTexto")
+        self.title("Preparando o EchoNotes")
         self.resizable(False, False)
         self.protocol("WM_DELETE_WINDOW", lambda: None)  # não deixa fechar durante o download
         self.transient(parent.root)
@@ -146,7 +146,7 @@ class MainWindow:
         self.session: TranscriptionSession | None = None
         self._recording = False
 
-        root.title(f"transcreveTexto v{__version__}")
+        root.title(f"EchoNotes v{__version__}")
         root.geometry("760x600")
         root.protocol("WM_DELETE_WINDOW", self._on_close)
 

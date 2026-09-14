@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from transcrevetexto.obsidian_writer import TranscriptSegment, build_markdown, format_timestamp
+from echonotes.obsidian_writer import TranscriptSegment, build_markdown, format_timestamp
 
 
 def test_format_timestamp_minutes_seconds():

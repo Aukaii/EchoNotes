@@ -1,4 +1,4 @@
-# transcreveTexto
+# EchoNotes
 
 App de desktop para **Windows 10+** que escuta todo o áudio que sai do seu
 computador (navegador, videoconferência, players, qualquer app), transcreve
@@ -33,7 +33,7 @@ Depois disso funciona 100% offline.
 
 ## Usando a versão pronta (recomendado)
 
-1. Baixe `transcreveTexto.exe` na aba
+1. Baixe `EchoNotes.exe` na aba
    [Releases](https://github.com/Aukaii/transcreveTexto/releases) deste
    repositório e execute.
 2. Na primeira vez, aguarde o download automático dos modelos (tela de
@@ -78,10 +78,10 @@ que o auto-updater encontra novas versões). Para gerar localmente:
 
 ```powershell
 pip install pyinstaller
-pyinstaller --onefile --noconsole --name transcreveTexto run.py
+pyinstaller --onefile --noconsole --name EchoNotes run.py
 ```
 
-O executável fica em `dist/transcreveTexto.exe`.
+O executável fica em `dist/EchoNotes.exe`.
 
 ## Limitações conhecidas
 
@@ -95,10 +95,10 @@ O executável fica em `dist/transcreveTexto.exe`.
   trocar o tamanho do modelo em "⚙ Configurações".
 - CPUs mais fracas podem transcrever com atraso perceptível usando modelos
   Whisper maiores que `small`. Com GPU NVIDIA, é possível editar
-  `~/.transcrevetexto/config.json` (gerado após o primeiro uso) para usar
+  `~/.echonotes/config.json` (gerado após o primeiro uso) para usar
   `"whisper_device": "cuda"` e `"whisper_compute_type": "float16"`.
 - A atualização automática exige que o Release no GitHub contenha um arquivo
-  chamado exatamente `transcreveTexto.exe` (é o nome usado pelo workflow).
+  chamado exatamente `EchoNotes.exe` (é o nome usado pelo workflow).
 
 ## Rodando os testes
 

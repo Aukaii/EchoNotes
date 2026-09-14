@@ -40,7 +40,7 @@ def build_markdown(
     lines.append(f'title: "{title}"')
     lines.append(f"date: {recorded_at.strftime('%Y-%m-%d %H:%M')}")
     lines.append(f"tags: [{front_matter_tags}]")
-    lines.append("source: transcreveTexto")
+    lines.append("source: EchoNotes")
     lines.append("---")
     lines.append("")
     lines.append(f"# {title}")

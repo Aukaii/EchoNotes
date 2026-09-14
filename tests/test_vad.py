@@ -1,6 +1,6 @@
 import numpy as np
 
-from transcrevetexto.vad import SegmentChunker
+from echonotes.vad import SegmentChunker
 
 
 def silence_frame(n=480):
