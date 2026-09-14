@@ -7,6 +7,7 @@ sozinho o modelo de resumo (sem precisar instalar nada à parte).
 """
 from __future__ import annotations
 
+import logging
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -14,9 +15,12 @@ from tkinter import filedialog, messagebox, ttk
 from . import __version__
 from .app import TranscriptionSession
 from .config import LLM_VARIANTS, Config
+from .logging_setup import LOG_PATH, setup_logging
 from .model_manager import is_llm_model_ready, ensure_llm_model
 from .transcriber import Transcriber
 from . import updater
+
+logger = logging.getLogger(__name__)
 
 UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000  # 6 horas
 
@@ -50,16 +54,31 @@ class SettingsDialog(tk.Toplevel):
             state="readonly", width=28,
         ).grid(row=1, column=1, sticky="w", padx=6)
 
-        ttk.Label(frame, text="Sensibilidade de detecção de fala:").grid(row=2, column=0, sticky="w")
+        ttk.Label(frame, text="Limiar de detecção de fala:").grid(row=2, column=0, sticky="w")
         self.energy_var = tk.DoubleVar(value=parent.config.energy_threshold)
-        ttk.Scale(frame, from_=0.002, to=0.05, variable=self.energy_var, orient="horizontal", length=180).grid(
-            row=2, column=1, sticky="w", padx=6
-        )
+        self.energy_value_label = ttk.Label(frame, text=f"{parent.config.energy_threshold:.4f}", width=8)
+        ttk.Scale(
+            frame,
+            from_=0.002,
+            to=0.05,
+            variable=self.energy_var,
+            orient="horizontal",
+            length=160,
+            command=lambda _v: self.energy_value_label.configure(text=f"{self.energy_var.get():.4f}"),
+        ).grid(row=2, column=1, sticky="w", padx=6)
+        self.energy_value_label.grid(row=2, column=2, sticky="w")
+        ttk.Label(
+            frame,
+            text="Mais à esquerda = detecta sons mais baixos. Veja o nível ao\n"
+            "vivo na tela principal durante a gravação para calibrar.",
+            foreground="#777",
+            font=("Segoe UI", 8),
+        ).grid(row=3, column=0, columnspan=3, sticky="w", pady=(0, 6))
 
         self.auto_update_var = tk.BooleanVar(value=parent.config.auto_update_check)
         ttk.Checkbutton(
             frame, text="Verificar atualizações automaticamente", variable=self.auto_update_var
-        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))
+        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(6, 0))
 
         buttons = ttk.Frame(self)
         buttons.pack(fill="x", **pad)
@@ -129,6 +148,7 @@ class FirstRunDialog(tk.Toplevel):
                 language=self.parent.config.language,
             )
         except Exception as exc:  # noqa: BLE001
+            logger.exception("Falha na preparação inicial (download de modelos)")
             self.after(0, lambda: messagebox.showerror("Erro na preparação", str(exc)))
         finally:
             self.after(0, self._finish)
@@ -208,6 +228,7 @@ class MainWindow:
             try:
                 updater.download_and_apply_update(info, on_progress=on_progress)
             except Exception as exc:  # noqa: BLE001
+                logger.exception("Falha ao aplicar atualização automática")
                 self.root.after(0, lambda: messagebox.showerror("Erro ao atualizar", str(exc)))
                 self.root.after(0, progress_win.destroy)
 
@@ -259,6 +280,14 @@ class MainWindow:
         self.status_var = tk.StringVar(value="Pronto.")
         ttk.Label(self.root, textvariable=self.status_var, foreground="#555").pack(fill="x", **pad)
 
+        level_frame = ttk.Frame(self.root)
+        level_frame.pack(fill="x", **pad)
+        ttk.Label(level_frame, text="Nível de áudio:").pack(side="left")
+        self.level_bar = ttk.Progressbar(level_frame, length=200, maximum=0.05, mode="determinate")
+        self.level_bar.pack(side="left", padx=6)
+        self.level_label_var = tk.StringVar(value="-- (limiar: --)")
+        ttk.Label(level_frame, textvariable=self.level_label_var, foreground="#777").pack(side="left")
+
         ttk.Label(self.root, text="Transcrição ao vivo:").pack(anchor="w", **pad)
         self.transcript_box = tk.Text(self.root, wrap="word", state="disabled", font=("Segoe UI", 10))
         self.transcript_box.pack(fill="both", expand=True, **pad)
@@ -283,6 +312,14 @@ class MainWindow:
     def _set_status(self, status: str) -> None:
         self.root.after(0, lambda: self.status_var.set(status))
 
+    def _on_level(self, level: float, threshold: float) -> None:
+        def do_update() -> None:
+            self.level_bar.configure(value=min(level, 0.05))
+            marker = "🔊 fala" if level > threshold else "silêncio"
+            self.level_label_var.set(f"{level:.4f} (limiar: {threshold:.4f}) — {marker}")
+
+        self.root.after(0, do_update)
+
     def _toggle_recording(self) -> None:
         if self._recording:
             self._stop()
@@ -298,7 +335,10 @@ class MainWindow:
         self.transcript_box.configure(state="disabled")
 
         self.session = TranscriptionSession(
-            self.config, on_partial_text=self._append_transcript, on_status=self._set_status
+            self.config,
+            on_partial_text=self._append_transcript,
+            on_status=self._set_status,
+            on_level=self._on_level,
         )
 
         def do_start() -> None:
@@ -306,7 +346,9 @@ class MainWindow:
                 self.session.start()
                 self.root.after(0, lambda: self._set_recording_state(True))
             except Exception as exc:  # noqa: BLE001 - mostra qualquer erro de captura/modelo ao usuário
+                logger.exception("Falha ao iniciar a gravação")
                 self._set_status(f"Erro ao iniciar: {exc}")
+                self.root.after(0, lambda: self._set_recording_state(False))
 
         self.toggle_button.configure(state="disabled")
         threading.Thread(target=do_start, daemon=True).start()
@@ -330,6 +372,7 @@ class MainWindow:
                 self._set_status(f"Salvo em: {path}")
                 self.root.after(0, lambda: messagebox.showinfo("Concluído", f"Nota salva em:\n{path}"))
             except Exception as exc:  # noqa: BLE001
+                logger.exception("Falha ao finalizar e salvar a gravação")
                 self._set_status(f"Erro ao salvar: {exc}")
             finally:
                 self.root.after(0, lambda: self._set_recording_state(False))
@@ -344,8 +387,18 @@ class MainWindow:
         self.root.destroy()
 
 
+def _report_callback_exception(exc, val, tb) -> None:
+    """Substitui o handler padrão do Tkinter, que só imprime no console
+    (invisível no .exe empacotado com --noconsole)."""
+    logger.error("Exceção não tratada em um callback do Tkinter", exc_info=(exc, val, tb))
+    messagebox.showerror("Erro inesperado", f"{val}\n\nDetalhes em: {LOG_PATH}")
+
+
 def main() -> None:
+    setup_logging()
+    logger.info("Iniciando EchoNotes v%s", __version__)
     root = tk.Tk()
+    root.report_callback_exception = _report_callback_exception
     MainWindow(root)
     root.mainloop()
 

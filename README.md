@@ -83,11 +83,26 @@ pyinstaller --onefile --noconsole --name EchoNotes run.py
 
 O executável fica em `dist/EchoNotes.exe`.
 
+## Solução de problemas
+
+Se a gravação terminar sem nenhuma fala detectada:
+
+1. Durante a gravação, acompanhe o **"Nível de áudio"** na tela principal —
+   ele mostra o volume captado em tempo real comparado ao limiar configurado.
+   Se o número não se mexer nunca (fica zerado mesmo com o vídeo tocando),
+   o problema é a captura do áudio do sistema, não a sensibilidade.
+2. Ajuste o **limiar de detecção de fala** em "⚙ Configurações" observando
+   esse nível ao vivo — ele mostra o valor numérico exato, não precisa
+   adivinhar pela posição do controle deslizante.
+3. Se algo der errado silenciosamente (a versão empacotada não tem console
+   para mostrar erros), consulte o arquivo de log em
+   `~/.echonotes/echonotes.log` — todas as exceções ficam registradas lá.
+
 ## Limitações conhecidas
 
 - O VAD por energia é simples (baseado em volume); em áudio com música de
   fundo alta ou volume muito baixo pode cortar frases de forma imprecisa.
-  Ajustável em "⚙ Configurações" (sensibilidade de detecção de fala).
+  Ajustável em "⚙ Configurações" (limiar de detecção de fala).
 - Não há separação de falantes (diarização) — a transcrição não identifica
   "quem" está falando.
 - O LLM local de resumo (Qwen 2.5, 1.5B ou 3B) é bem mais limitado que

@@ -6,12 +6,16 @@ padrão em modo loopback via WASAPI (sem precisar de driver de áudio virtual).
 """
 from __future__ import annotations
 
+import logging
 import queue
 import threading
 from dataclasses import dataclass
+from typing import Callable
 
 import numpy as np
 import soundcard as sc
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -22,6 +26,7 @@ class LoopbackRecorder:
 
     sample_rate: int = 16000
     frame_ms: int = 30
+    on_error: Callable[[Exception], None] | None = None
 
     def __post_init__(self) -> None:
         self._frame_samples = int(self.sample_rate * self.frame_ms / 1000)
@@ -49,16 +54,23 @@ class LoopbackRecorder:
                 continue
 
     def _run(self) -> None:
-        speaker = sc.default_speaker()
-        mic = sc.get_microphone(id=str(speaker.name), include_loopback=True)
-        with mic.recorder(samplerate=self.sample_rate) as recorder:
-            leftover = np.empty((0,), dtype=np.float32)
-            while not self._stop_event.is_set():
-                data = recorder.record(numframes=self._frame_samples)
-                if data.ndim > 1:
-                    data = data.mean(axis=1)
-                data = data.astype(np.float32)
-                leftover = np.concatenate([leftover, data])
-                while leftover.shape[0] >= self._frame_samples:
-                    self._queue.put(leftover[: self._frame_samples])
-                    leftover = leftover[self._frame_samples :]
+        try:
+            speaker = sc.default_speaker()
+            logger.info("Dispositivo de saída padrão: %s", speaker.name)
+            mic = sc.get_microphone(id=str(speaker.name), include_loopback=True)
+            with mic.recorder(samplerate=self.sample_rate) as recorder:
+                logger.info("Loopback aberto com sucesso (samplerate=%d)", self.sample_rate)
+                leftover = np.empty((0,), dtype=np.float32)
+                while not self._stop_event.is_set():
+                    data = recorder.record(numframes=self._frame_samples)
+                    if data.ndim > 1:
+                        data = data.mean(axis=1)
+                    data = data.astype(np.float32)
+                    leftover = np.concatenate([leftover, data])
+                    while leftover.shape[0] >= self._frame_samples:
+                        self._queue.put(leftover[: self._frame_samples])
+                        leftover = leftover[self._frame_samples :]
+        except Exception as exc:  # noqa: BLE001 - precisa chegar até a GUI/log, nunca morrer em silêncio
+            logger.exception("Falha na captura de áudio (loopback)")
+            if self.on_error is not None:
+                self.on_error(exc)
