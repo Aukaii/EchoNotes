@@ -34,7 +34,7 @@ Depois disso funciona 100% offline.
 ## Usando a versão pronta (recomendado)
 
 1. Baixe `EchoNotes.exe` na aba
-   [Releases](https://github.com/Aukaii/transcreveTexto/releases) deste
+   [Releases](https://github.com/Aukaii/EchoNotes/releases) deste
    repositório e execute.
 2. Na primeira vez, aguarde o download automático dos modelos (tela de
    progresso).
@@ -55,8 +55,8 @@ o `.exe` automaticamente.
 ## Rodando a partir do código-fonte (para desenvolvimento)
 
 ```powershell
-git clone https://github.com/Aukaii/transcreveTexto
-cd transcreveTexto
+git clone https://github.com/Aukaii/EchoNotes
+cd EchoNotes
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
