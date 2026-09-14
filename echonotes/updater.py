@@ -15,7 +15,7 @@ import requests
 
 from . import __version__
 
-GITHUB_REPO = "Aukaii/transcreveTexto"  # nome do repositório no GitHub (não é o nome do programa)
+GITHUB_REPO = "Aukaii/EchoNotes"
 API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 ASSET_NAME = "EchoNotes.exe"
 
