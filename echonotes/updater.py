@@ -15,9 +15,9 @@ import requests
 
 from . import __version__
 
-GITHUB_REPO = "Aukaii/transcreveTexto"
+GITHUB_REPO = "Aukaii/transcreveTexto"  # nome do repositório no GitHub (não é o nome do programa)
 API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
-ASSET_NAME = "transcreveTexto.exe"
+ASSET_NAME = "EchoNotes.exe"
 
 
 @dataclass
@@ -80,7 +80,7 @@ def download_and_apply_update(info: UpdateInfo, on_progress=None) -> None:
         )
 
     current_exe = Path(sys.executable)
-    tmp_dir = Path(tempfile.mkdtemp(prefix="transcrevetexto_update_"))
+    tmp_dir = Path(tempfile.mkdtemp(prefix="echonotes_update_"))
     new_exe = tmp_dir / ASSET_NAME
 
     with requests.get(info.download_url, stream=True, timeout=60) as response:

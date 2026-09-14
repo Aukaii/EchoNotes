@@ -4,7 +4,7 @@ usuário nunca precise instalar nada manualmente.
 - Whisper (faster-whisper): baixado e cacheado automaticamente pela própria
   biblioteca `huggingface_hub` no primeiro uso (não precisa de código aqui).
 - LLM de resumo (GGUF, para llama.cpp): baixado por este módulo para
-  `~/.transcrevetexto/models/`.
+  `~/.echonotes/models/`.
 """
 from __future__ import annotations
 

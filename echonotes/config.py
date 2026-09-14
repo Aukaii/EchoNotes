@@ -5,7 +5,7 @@ import json
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
-APP_DIR = Path.home() / ".transcrevetexto"
+APP_DIR = Path.home() / ".echonotes"
 CONFIG_PATH = APP_DIR / "config.json"
 MODELS_DIR = APP_DIR / "models"
 
@@ -26,7 +26,7 @@ DEFAULT_LLM_VARIANT = "equilibrado (3B, recomendado)"
 
 @dataclass
 class Config:
-    output_dir: str = str(Path.home() / "Documents" / "transcreveTexto")
+    output_dir: str = str(Path.home() / "Documents" / "EchoNotes")
     whisper_model: str = "small"
     whisper_device: str = "cpu"
     whisper_compute_type: str = "int8"
