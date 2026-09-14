@@ -51,7 +51,7 @@ def build_markdown(
     if summary:
         lines.append(summary.strip())
     else:
-        lines.append("_Resumo automático indisponível (Ollama não respondeu). Veja a transcrição completa abaixo._")
+        lines.append("_Resumo automático indisponível. Veja a transcrição completa abaixo._")
     lines.append("")
 
     lines.append("## Transcrição completa")

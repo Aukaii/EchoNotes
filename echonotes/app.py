@@ -2,6 +2,7 @@
 -> gravação do arquivo .md final."""
 from __future__ import annotations
 
+import logging
 import queue
 import threading
 import time
@@ -13,18 +14,26 @@ from .config import Config
 from .llm_local import SummarizerUnavailableError, summarize
 from .obsidian_writer import TranscriptSegment, build_markdown
 from .transcriber import Transcriber
-from .vad import SegmentChunker
+from .vad import SegmentChunker, frame_rms
+
+logger = logging.getLogger(__name__)
+
+# A cada quantos frames (de frame_ms cada) reportar o nível de áudio à GUI.
+# Frames chegam a cada ~30ms; reportar todos seria mais atualização do que
+# qualquer interface precisa e sobrecarregaria a thread principal do tkinter.
+_LEVEL_REPORT_EVERY_N_FRAMES = 5
 
 
 class TranscriptionSession:
     """Uma sessão de gravação: do start() ao stop_and_save()."""
 
-    def __init__(self, config: Config, on_partial_text=None, on_status=None) -> None:
+    def __init__(self, config: Config, on_partial_text=None, on_status=None, on_level=None) -> None:
         self.config = config
         self.on_partial_text = on_partial_text or (lambda text, ts: None)
         self.on_status = on_status or (lambda status: None)
+        self.on_level = on_level or (lambda level, threshold: None)
 
-        self._recorder = LoopbackRecorder(sample_rate=config.sample_rate)
+        self._recorder = LoopbackRecorder(sample_rate=config.sample_rate, on_error=self._on_recorder_error)
         self._chunker = SegmentChunker(
             sample_rate=config.sample_rate,
             energy_threshold=config.energy_threshold,
@@ -37,6 +46,7 @@ class TranscriptionSession:
         self._worker_thread: threading.Thread | None = None
         self._stopping = threading.Event()
         self._segment_queue: "queue.Queue[tuple[float, object]]" = queue.Queue()
+        self._frame_count = 0
 
     def start(self) -> None:
         self.on_status("Carregando modelo Whisper...")
@@ -53,19 +63,34 @@ class TranscriptionSession:
         self._worker_thread.start()
         self.on_status("Gravando e transcrevendo...")
 
+    def _on_recorder_error(self, exc: Exception) -> None:
+        self.on_status(f"Erro na captura de áudio: {exc}")
+
     def _run(self) -> None:
         assert self._transcriber is not None
         for frame in self._recorder.frames():
             if self._stopping.is_set():
                 break
-            segment_start = time.monotonic() - self._start_time
-            audio = self._chunker.push(frame)
-            if audio is not None:
-                self._handle_segment(segment_start, audio)
 
-        final_audio = self._chunker.flush_remaining()
-        if final_audio is not None:
-            self._handle_segment(time.monotonic() - self._start_time, final_audio)
+            self._frame_count += 1
+            if self._frame_count % _LEVEL_REPORT_EVERY_N_FRAMES == 0:
+                self.on_level(frame_rms(frame), self.config.energy_threshold)
+
+            segment_start = time.monotonic() - self._start_time
+            try:
+                audio = self._chunker.push(frame)
+                if audio is not None:
+                    self._handle_segment(segment_start, audio)
+            except Exception:  # noqa: BLE001 - um segmento ruim não pode derrubar a sessão inteira
+                logger.exception("Falha ao processar um segmento de áudio; continuando a gravação")
+                self.on_status("Aviso: falha ao transcrever um trecho (veja o log). Continuando...")
+
+        try:
+            final_audio = self._chunker.flush_remaining()
+            if final_audio is not None:
+                self._handle_segment(time.monotonic() - self._start_time, final_audio)
+        except Exception:  # noqa: BLE001
+            logger.exception("Falha ao processar o último trecho de áudio")
 
     def _handle_segment(self, approx_start_seconds: float, audio) -> None:
         assert self._transcriber is not None
@@ -91,7 +116,8 @@ class TranscriptionSession:
         try:
             summary = summarize(transcript_text, self.config)
         except SummarizerUnavailableError as exc:
-            summary = None
+            logger.exception("Falha ao gerar o resumo local")
+            summary = f"_Resumo automático indisponível: {exc}_"
             self.on_status(str(exc))
 
         markdown = build_markdown(
