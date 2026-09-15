@@ -10,8 +10,18 @@ from typing import Callable
 from .config import Config
 from .model_manager import ensure_llm_model
 
-_CHUNK_PROMPT = """Resuma em português os pontos principais do trecho de transcrição de aula
-abaixo, em bullets curtos e objetivos. Não invente informações que não estejam no texto.
+_CHUNK_PROMPT = """Você está extraindo notas de estudo a partir de um trecho de transcrição
+de aula. Leia o trecho abaixo e extraia, em português:
+
+1. Tópicos abordados nesse trecho e os pontos-chave de cada um — seja específico e preciso,
+   sem inventar nada que não esteja no texto.
+2. Dicas, avisos ou comentários relevantes que quem fala tenha feito (ex.: "isso cai na
+   prova", "presta atenção nisso", recomendações práticas) — só inclua se estiver
+   realmente no texto, não invente dicas genéricas.
+3. Termos técnicos ou siglas citados, com uma definição curta baseada no contexto.
+
+Seja objetivo, resuma com suas próprias palavras em vez de copiar frases inteiras. Se o
+trecho não tiver nada relevante para algum desses três pontos, pode omitir esse ponto.
 
 Trecho:
 \"\"\"
@@ -19,15 +29,43 @@ Trecho:
 \"\"\"
 """
 
-_FINAL_PROMPT = """Você é um assistente que organiza anotações de aula para o Obsidian.
-Abaixo estão resumos parciais (em ordem) de uma aula. Combine-os em um único resumo
-final em Markdown, em português, com:
+_FINAL_PROMPT = """Você é um assistente que organiza anotações de aula em notas de estudo
+para o Obsidian. Abaixo estão extrações parciais (em ordem cronológica) de uma aula. Combine
+tudo em notas finais, únicas, em português, seguindo EXATAMENTE esta estrutura Markdown (não
+inclua nenhum título de nível 1 "#", não inclua front matter, comece direto em "## 📌"):
 
-- Uma lista dos principais tópicos abordados (títulos ##)
-- Pontos-chave em bullets, de forma objetiva, sem repetição
-- Uma seção final "Termos e conceitos" com definições curtas dos termos técnicos citados
+## 📌 Tópicos principais
 
-Resumos parciais:
+### <nome do tópico 1>
+- ponto-chave objetivo e específico
+- ponto-chave objetivo e específico
+
+### <nome do tópico 2>
+- ...
+
+(um "###" para cada tópico realmente abordado na aula, quantos forem necessários; não
+repita o mesmo ponto em mais de um tópico)
+
+## 💡 Dicas e comentários
+
+> [!tip] <dica curta em poucas palavras>
+> Explicação da dica em 1-2 frases, baseada no que foi dito.
+
+(uma citação "> [!tip]" por dica encontrada nas extrações; se nenhuma dica ou comentário
+relevante foi feito na aula, escreva apenas "_Nenhuma dica específica mencionada nesta
+aula._" nesta seção — não invente dicas)
+
+## 📚 Termos e conceitos
+
+- **<termo>**: definição curta e precisa
+- **<termo>**: definição curta e precisa
+
+(se não houver termos técnicos relevantes, escreva "_Nenhum termo técnico relevante._")
+
+Regra mais importante: não invente informações que não estejam nas extrações abaixo. Seja
+preciso e específico, evite generalidades vagas.
+
+Extrações parciais:
 \"\"\"
 {partial_summaries}
 \"\"\"
@@ -102,10 +140,11 @@ def summarize(
             "e espaço em disco."
         ) from exc
 
+    # Sempre passa por duas etapas (extração por trecho + composição final), mesmo para
+    # transcrições curtas de um só trecho: é o que garante a estrutura de notas do Obsidian
+    # (tópicos, dicas, termos) de forma consistente, em vez de só um resumo cru quando a
+    # aula é curta.
     chunks = _split_into_chunks(transcript, _MAX_CHARS_PER_CHUNK)
-    if len(chunks) == 1:
-        return _chat(llm, _CHUNK_PROMPT.format(chunk=chunks[0]), max_tokens=1024)
-
-    partial_summaries = [_chat(llm, _CHUNK_PROMPT.format(chunk=c), max_tokens=512) for c in chunks]
-    combined = "\n\n".join(f"- Trecho {i + 1}: {s}" for i, s in enumerate(partial_summaries))
-    return _chat(llm, _FINAL_PROMPT.format(partial_summaries=combined), max_tokens=1536)
+    partial_extracts = [_chat(llm, _CHUNK_PROMPT.format(chunk=c), max_tokens=768) for c in chunks]
+    combined = "\n\n".join(f"--- Trecho {i + 1} ---\n{s}" for i, s in enumerate(partial_extracts))
+    return _chat(llm, _FINAL_PROMPT.format(partial_summaries=combined), max_tokens=2048)

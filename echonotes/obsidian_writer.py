@@ -46,21 +46,25 @@ def build_markdown(
     lines.append(f"# {title}")
     lines.append("")
 
-    lines.append("## Resumo")
-    lines.append("")
     if summary:
+        # O resumo já vem estruturado (tópicos, dicas, termos) do LLM local — inserido
+        # direto, sem envolver numa seção "Resumo" genérica.
         lines.append(summary.strip())
     else:
         lines.append("_Resumo automático indisponível. Veja a transcrição completa abaixo._")
     lines.append("")
 
-    lines.append("## Transcrição completa")
+    lines.append("## 📝 Transcrição completa")
     lines.append("")
     if segments:
+        # Callout dobrável do Obsidian ("[!quote]-"): mantém a nota enxuta por padrão,
+        # com a transcrição bruta disponível a um clique de distância.
+        lines.append("> [!quote]- Clique para expandir a transcrição com marcações de tempo")
         for seg in segments:
             ts = format_timestamp(seg.start_seconds)
-            lines.append(f"**[{ts}]** {seg.text.strip()}")
-            lines.append("")
+            lines.append(f"> **[{ts}]** {seg.text.strip()}")
+            lines.append(">")
+        lines.append("")
     else:
         lines.append("_Nenhuma fala detectada._")
         lines.append("")

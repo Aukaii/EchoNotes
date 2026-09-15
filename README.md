@@ -23,11 +23,20 @@ internet, não há custo de API e **não é preciso instalar nada separado**
    em frases/trechos de fala.
 3. **Transcrição**: cada trecho é transcrito localmente com faster-whisper
    e aparece na tela em tempo real.
-4. **Resumo**: ao clicar em "Parar e salvar", a transcrição completa é
-   resumida por um LLM local (Qwen 2.5, quantizado, roda em CPU).
-5. **Arquivo final**: um `.md` com front matter YAML (título, data, tags) +
-   resumo + transcrição completa com timestamps é salvo na pasta que você
-   escolher — aponte direto para uma pasta dentro do seu vault do Obsidian.
+4. **Notas**: ao clicar em "Parar e salvar", a transcrição completa passa por um LLM
+   local (Qwen 2.5, quantizado, roda em CPU) que organiza anotações de estudo — não só
+   um resumo genérico, mas tópicos separados por assunto, dicas/comentários relevantes
+   que foram ditos na aula (como avisos de "isso cai na prova") e um glossário dos
+   termos técnicos citados.
+5. **Arquivo final**: um `.md` com front matter YAML (título, data, tags), estilizado
+   para o Obsidian, é salvo na pasta que você escolher — aponte direto para uma pasta
+   dentro do seu vault. A estrutura é:
+   - `## 📌 Tópicos principais` — um `###` por tópico, com os pontos-chave em bullets.
+   - `## 💡 Dicas e comentários` — como blocos de destaque (`> [!tip]`) nativos do
+     Obsidian, um por dica.
+   - `## 📚 Termos e conceitos` — glossário dos termos técnicos citados.
+   - `## 📝 Transcrição completa` — a transcrição bruta com timestamps, dentro de um
+     bloco dobrável (`> [!quote]-`) para manter a nota enxuta por padrão.
 
 Na **primeira execução**, o próprio app baixa o modelo de resumo (~1-2 GB,
 com barra de progresso) e o modelo de transcrição Whisper `large-v3-turbo`
