@@ -31,7 +31,7 @@ jobs:
           pip install pyinstaller
 
       - name: Gerar executável
-        run: pyinstaller --onefile --noconsole --name EchoNotes run.py
+        run: pyinstaller --onefile --noconsole --name EchoNotes --icon assets/icon.ico --add-data "assets;assets" run.py
 
       - name: Publicar release
         uses: softprops/action-gh-release@v2

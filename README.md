@@ -1,3 +1,5 @@
+![EchoNotes](assets/banner.png)
+
 # EchoNotes
 
 App de desktop para **Windows 10+** que escuta todo o áudio que sai do seu
@@ -78,10 +80,19 @@ que o auto-updater encontra novas versões). Para gerar localmente:
 
 ```powershell
 pip install pyinstaller
-pyinstaller --onefile --noconsole --name EchoNotes run.py
+pyinstaller --onefile --noconsole --name EchoNotes --icon assets/icon.ico --add-data "assets;assets" run.py
 ```
 
-O executável fica em `dist/EchoNotes.exe`.
+O executável fica em `dist/EchoNotes.exe`, já com o ícone da marca embutido.
+
+## Identidade visual
+
+Os arquivos de marca ficam em [`assets/`](assets): `icon.ico`/`icon_mark.png`
+(ícone do app), `logo_square.png` (logo quadrado) e `banner.png` (usado no
+topo deste README). Para o repositório também mostrar o banner nos links
+compartilhados (redes sociais, Slack etc.), suba `assets/banner.png` em
+**Settings → General → Social preview** no GitHub — isso só pode ser feito
+pela interface web, não existe API para automatizar.
 
 ## Solução de problemas
 
