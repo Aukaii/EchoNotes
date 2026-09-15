@@ -110,6 +110,15 @@ Se a gravação terminar sem nenhuma fala detectada:
    para mostrar erros), consulte o arquivo de log em
    `~/.echonotes/echonotes.log` — todas as exceções ficam registradas lá.
 
+Se a transcrição sair com palavras completamente desconexas do que foi
+dito: isso costuma ser perda real de áudio, não erro de reconhecimento —
+a thread de captura (tempo real) pode ficar sem CPU enquanto o Whisper
+transcreve um trecho anterior, perdendo pedaços do áudio sem gerar nenhum
+erro visível. O log mostra um aviso ("Leitura de áudio demorou...") quando
+isso é detectado. O app já reserva CPU para a captura e lê em blocos
+maiores para reduzir esse risco; se ainda acontecer, tente um modelo
+Whisper menor (`small`/`medium`) em "⚙ Configurações" para dar mais folga.
+
 ## Limitações conhecidas
 
 - O VAD por energia é simples (baseado em volume); em áudio com música de

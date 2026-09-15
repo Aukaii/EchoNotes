@@ -3,6 +3,7 @@ para nenhum servidor)."""
 from __future__ import annotations
 
 import logging
+import os
 
 import numpy as np
 from faster_whisper import WhisperModel
@@ -14,6 +15,15 @@ logger = logging.getLogger(__name__)
 _SAMPLE_RATE = 16000
 
 
+def _default_cpu_threads() -> int:
+    """Deixa pelo menos 2 núcleos livres para a thread de captura de áudio
+    (tempo real, sensível a atraso) não ser esmagada pela transcrição, que
+    usa CPU pesado. Sem isso, a captura pode perder áudio de verdade sob
+    carga, corrompendo a transcrição sem gerar nenhum erro visível."""
+    total = os.cpu_count() or 4
+    return max(1, total - 2)
+
+
 class Transcriber:
     def __init__(
         self,
@@ -22,10 +32,16 @@ class Transcriber:
         compute_type: str = "int8",
         language: str = "pt",
         playback_speed: float = 1.0,
+        cpu_threads: int | None = None,
     ) -> None:
         self.language = language
         self.playback_speed = playback_speed
-        self._model = WhisperModel(model_size, device=device, compute_type=compute_type)
+        if device == "cpu" and cpu_threads is None:
+            cpu_threads = _default_cpu_threads()
+        logger.info("Carregando Whisper (device=%s, cpu_threads=%s)", device, cpu_threads)
+        self._model = WhisperModel(
+            model_size, device=device, compute_type=compute_type, cpu_threads=cpu_threads or 0
+        )
 
     def transcribe_segment(self, audio: np.ndarray) -> str:
         """Transcreve um trecho de áudio mono float32 (-1..1) em 16kHz."""
