@@ -111,13 +111,21 @@ Se a gravação terminar sem nenhuma fala detectada:
    `~/.echonotes/echonotes.log` — todas as exceções ficam registradas lá.
 
 Se a transcrição sair com palavras completamente desconexas do que foi
-dito: isso costuma ser perda real de áudio, não erro de reconhecimento —
-a thread de captura (tempo real) pode ficar sem CPU enquanto o Whisper
-transcreve um trecho anterior, perdendo pedaços do áudio sem gerar nenhum
-erro visível. O log mostra um aviso ("Leitura de áudio demorou...") quando
-isso é detectado. O app já reserva CPU para a captura e lê em blocos
-maiores para reduzir esse risco; se ainda acontecer, tente um modelo
-Whisper menor (`small`/`medium`) em "⚙ Configurações" para dar mais folga.
+dito: na maioria dos casos isso acontece em falas contínuas, sem pausas
+reais (uma aula/palestra corrida) — o segmento é forçado a fechar ao
+atingir o limite de duração (`max_segment_ms`) mesmo sem silêncio, e um
+corte no meio de uma palavra ou sílaba confunde muito o Whisper, que pode
+"alucinar" e embaralhar o trecho inteiro mesmo com o áudio capturado
+perfeitamente íntegro. Por isso esse corte forçado agora procura o ponto
+mais silencioso dos últimos instantes do trecho (a pequena queda de
+energia natural entre palavras) em vez de cortar num ponto arbitrário.
+Se mesmo assim acontecer, também pode ser perda real de áudio: a thread de
+captura (tempo real) pode ficar sem CPU enquanto o Whisper transcreve um
+trecho anterior, perdendo pedaços do áudio sem gerar nenhum erro visível —
+o log mostra um aviso ("Leitura de áudio demorou...") quando isso é
+detectado. O app já reserva CPU para a captura e lê em blocos maiores para
+reduzir esse risco; se ainda acontecer, tente um modelo Whisper menor
+(`small`/`medium`) em "⚙ Configurações" para dar mais folga.
 
 Se a transcrição continuar desconexa mesmo assim, ative **"Salvar áudio
 bruto de cada trecho (diagnóstico)"** em "⚙ Configurações", grave um trecho

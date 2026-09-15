@@ -29,6 +29,14 @@ class SegmentChunker:
     silence_ms_to_close_segment: int = 700
     min_segment_ms: int = 300
     max_segment_ms: int = 6000
+    # Janela (no fim do buffer) onde procuramos o ponto mais silencioso para
+    # cortar um segmento forçado (fala sem pausas de verdade). Mesmo fala
+    # contínua tem micro-quedas de energia entre palavras/sílabas; cortar
+    # exatamente nesse ponto em vez de num frame arbitrário evita partir uma
+    # palavra ao meio, o que confunde muito o Whisper (ele passou a alucinar/
+    # embaralhar o texto todo do trecho quando o corte caía no meio de uma
+    # sílaba, mesmo com o áudio capturado perfeitamente íntegro).
+    soft_cut_lookback_ms: int = 1000
 
     _buffer: list[np.ndarray] = field(default_factory=list, init=False)
     _silence_ms: int = field(default=0, init=False)
@@ -48,27 +56,52 @@ class SegmentChunker:
             self._speech_ms += self.frame_ms
             self._silence_ms = 0
             if self._speech_ms >= self.max_segment_ms:
-                return self._flush()
+                return self._flush(soft_cut=True)
             return None
 
         if self._buffer:
             self._silence_ms += self.frame_ms
             if self._silence_ms >= self.silence_ms_to_close_segment:
-                return self._flush()
+                return self._flush(soft_cut=False)
         return None
 
     def flush_remaining(self) -> np.ndarray | None:
         """Deve ser chamado ao parar a gravação para não perder o último trecho."""
         if self._buffer:
-            return self._flush()
+            return self._flush(soft_cut=False)
         return None
 
-    def _flush(self) -> np.ndarray | None:
-        segment = np.concatenate(self._buffer) if self._buffer else None
-        finished_speech_ms = self._speech_ms
-        self._buffer = []
-        self._speech_ms = 0
+    def _flush(self, soft_cut: bool) -> np.ndarray | None:
+        if not self._buffer:
+            self._speech_ms = 0
+            self._silence_ms = 0
+            return None
+
+        cut_index = self._find_quietest_cut_point() if soft_cut else len(self._buffer)
+        emitted, remainder = self._buffer[:cut_index], self._buffer[cut_index:]
+
+        segment = np.concatenate(emitted) if emitted else None
+        finished_speech_ms = len(emitted) * self.frame_ms
+
+        self._buffer = remainder
+        self._speech_ms = len(remainder) * self.frame_ms
         self._silence_ms = 0
+
         if segment is None or finished_speech_ms < self.min_segment_ms:
             return None
         return segment
+
+    def _find_quietest_cut_point(self) -> int:
+        """Retorna o índice (exclusivo) onde cortar o buffer atual: o fim do
+        frame de menor energia dentro da janela `soft_cut_lookback_ms` no fim
+        do buffer, sem nunca deixar o segmento emitido menor que
+        min_segment_ms."""
+        lookback_frames = max(1, self.soft_cut_lookback_ms // self.frame_ms)
+        min_frames = max(1, self.min_segment_ms // self.frame_ms)
+        window_start = max(min_frames, len(self._buffer) - lookback_frames)
+        if window_start >= len(self._buffer):
+            return len(self._buffer)
+
+        energies = [frame_rms(f) for f in self._buffer[window_start:]]
+        quietest_offset = int(np.argmin(energies))
+        return window_start + quietest_offset + 1
