@@ -13,10 +13,12 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 from . import __version__
+from . import theme
 from .app import TranscriptionSession
 from .config import LLM_VARIANTS, Config
 from .logging_setup import LOG_PATH, setup_logging
 from .model_manager import is_llm_model_ready, ensure_llm_model
+from .resources import resource_path
 from .transcriber import Transcriber
 from . import updater
 
@@ -30,6 +32,7 @@ class SettingsDialog(tk.Toplevel):
         super().__init__(parent.root)
         self.parent = parent
         self.title("Configurações avançadas")
+        self.configure(bg=theme.BG)
         self.resizable(False, False)
         self.transient(parent.root)
         self.grab_set()
@@ -71,8 +74,8 @@ class SettingsDialog(tk.Toplevel):
             frame,
             text="Mais à esquerda = detecta sons mais baixos. Veja o nível ao\n"
             "vivo na tela principal durante a gravação para calibrar.",
-            foreground="#777",
-            font=("Segoe UI", 8),
+            foreground=theme.TEXT_MUTED,
+            font=(theme.FONT_FAMILY, 8),
         ).grid(row=3, column=0, columnspan=3, sticky="w", pady=(0, 6))
 
         self.auto_update_var = tk.BooleanVar(value=parent.config.auto_update_check)
@@ -101,6 +104,7 @@ class FirstRunDialog(tk.Toplevel):
     def __init__(self, parent: "MainWindow", on_done) -> None:
         super().__init__(parent.root)
         self.title("Preparando o EchoNotes")
+        self.configure(bg=theme.BG)
         self.resizable(False, False)
         self.protocol("WM_DELETE_WINDOW", lambda: None)  # não deixa fechar durante o download
         self.transient(parent.root)
@@ -167,9 +171,11 @@ class MainWindow:
         self._recording = False
 
         root.title(f"EchoNotes v{__version__}")
-        root.geometry("760x600")
+        root.geometry("760x640")
         root.protocol("WM_DELETE_WINDOW", self._on_close)
 
+        theme.apply(root)
+        self._set_window_icon()
         self._build_widgets()
 
         if is_llm_model_ready(self.config.llm_variant):
@@ -177,6 +183,14 @@ class MainWindow:
         else:
             self.root.withdraw()
             root.after(100, lambda: FirstRunDialog(self, self._show_main_after_first_run))
+
+    def _set_window_icon(self) -> None:
+        try:
+            icon_path = resource_path("assets/icon_mark.png")
+            self._icon_image = tk.PhotoImage(file=str(icon_path))
+            self.root.iconphoto(True, self._icon_image)
+        except Exception:  # noqa: BLE001 - ícone é cosmético, nunca deve impedir o app de abrir
+            logger.exception("Não foi possível carregar o ícone da janela")
 
     def _show_main_after_first_run(self) -> None:
         self.root.deiconify()
@@ -214,6 +228,7 @@ class MainWindow:
 
         progress_win = tk.Toplevel(self.root)
         progress_win.title("Atualizando...")
+        progress_win.configure(bg=theme.BG)
         progress_win.protocol("WM_DELETE_WINDOW", lambda: None)
         status_var = tk.StringVar(value="Baixando atualização...")
         ttk.Label(progress_win, textvariable=status_var).pack(padx=20, pady=10)
@@ -237,8 +252,21 @@ class MainWindow:
     def _build_widgets(self) -> None:
         pad = {"padx": 10, "pady": 6}
 
+        header = ttk.Frame(self.root, style="Header.TFrame")
+        header.pack(fill="x")
+        header_inner = ttk.Frame(header, style="Header.TFrame")
+        header_inner.pack(padx=16, pady=12)
+        try:
+            self._header_icon = tk.PhotoImage(file=str(resource_path("assets/icon_mark.png"))).subsample(20, 20)
+            ttk.Label(header_inner, image=self._header_icon, style="Header.TLabel").pack(side="left", padx=(0, 10))
+        except Exception:  # noqa: BLE001 - ícone é cosmético
+            logger.exception("Não foi possível carregar o ícone do cabeçalho")
+        ttk.Label(header_inner, text="EchoNotes", style="Header.TLabel", font=(theme.FONT_FAMILY, 16, "bold")).pack(
+            side="left"
+        )
+
         self.update_frame = ttk.Frame(self.root, style="Update.TFrame")
-        self.update_banner = ttk.Label(self.update_frame, text="")
+        self.update_banner = ttk.Label(self.update_frame, text="", style="Update.TLabel")
         self.update_banner.pack(side="left", padx=10, pady=4)
         self.update_button = ttk.Button(self.update_frame, text="Atualizar agora")
         self.update_button.pack(side="right", padx=10, pady=4)
@@ -250,7 +278,7 @@ class MainWindow:
 
         ttk.Label(top, text="Título da aula:").grid(row=0, column=0, sticky="w")
         self.title_var = tk.StringVar(value="Aula sem título")
-        ttk.Entry(top, textvariable=self.title_var, font=("Segoe UI", 11)).grid(
+        ttk.Entry(top, textvariable=self.title_var, font=(theme.FONT_FAMILY, 11)).grid(
             row=0, column=1, sticky="we", padx=6
         )
 
@@ -267,18 +295,20 @@ class MainWindow:
             control,
             text="▶  Iniciar gravação",
             command=self._toggle_recording,
-            font=("Segoe UI", 13, "bold"),
-            bg="#2e7d32",
-            fg="white",
-            activebackground="#1b5e20",
-            activeforeground="white",
+            font=(theme.FONT_FAMILY, 13, "bold"),
+            bg=theme.PURPLE,
+            fg=theme.SURFACE,
+            activebackground=theme.PURPLE_DARK,
+            activeforeground=theme.SURFACE,
+            relief="flat",
+            borderwidth=0,
             height=2,
         )
         self.toggle_button.pack(side="left", fill="x", expand=True)
         ttk.Button(control, text="⚙ Configurações", command=self._open_settings).pack(side="left", padx=10)
 
         self.status_var = tk.StringVar(value="Pronto.")
-        ttk.Label(self.root, textvariable=self.status_var, foreground="#555").pack(fill="x", **pad)
+        ttk.Label(self.root, textvariable=self.status_var, style="Muted.TLabel").pack(fill="x", **pad)
 
         level_frame = ttk.Frame(self.root)
         level_frame.pack(fill="x", **pad)
@@ -286,10 +316,27 @@ class MainWindow:
         self.level_bar = ttk.Progressbar(level_frame, length=200, maximum=0.05, mode="determinate")
         self.level_bar.pack(side="left", padx=6)
         self.level_label_var = tk.StringVar(value="-- (limiar: --)")
-        ttk.Label(level_frame, textvariable=self.level_label_var, foreground="#777").pack(side="left")
+        ttk.Label(level_frame, textvariable=self.level_label_var, style="Muted.TLabel").pack(side="left")
 
         ttk.Label(self.root, text="Transcrição ao vivo:").pack(anchor="w", **pad)
-        self.transcript_box = tk.Text(self.root, wrap="word", state="disabled", font=("Segoe UI", 10))
+        self.transcript_box = tk.Text(
+            self.root,
+            wrap="word",
+            state="disabled",
+            font=(theme.FONT_FAMILY, 10),
+            bg=theme.SURFACE,
+            fg=theme.TEXT,
+            insertbackground=theme.PURPLE,
+            selectbackground=theme.PURPLE_SOFT,
+            selectforeground=theme.TEXT,
+            relief="flat",
+            borderwidth=1,
+            highlightthickness=1,
+            highlightbackground=theme.BORDER,
+            highlightcolor=theme.PURPLE,
+            padx=8,
+            pady=8,
+        )
         self.transcript_box.pack(fill="both", expand=True, **pad)
 
     def _open_settings(self) -> None:
@@ -356,9 +403,9 @@ class MainWindow:
     def _set_recording_state(self, recording: bool) -> None:
         self._recording = recording
         if recording:
-            self.toggle_button.configure(text="■  Parar e salvar", bg="#c62828", activebackground="#8e0000")
+            self.toggle_button.configure(text="■  Parar e salvar", bg=theme.DANGER, activebackground=theme.DANGER_DARK)
         else:
-            self.toggle_button.configure(text="▶  Iniciar gravação", bg="#2e7d32", activebackground="#1b5e20")
+            self.toggle_button.configure(text="▶  Iniciar gravação", bg=theme.PURPLE, activebackground=theme.PURPLE_DARK)
         self.toggle_button.configure(state="normal")
 
     def _stop(self) -> None:
