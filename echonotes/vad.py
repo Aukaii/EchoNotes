@@ -59,10 +59,26 @@ class SegmentChunker:
                 return self._flush(soft_cut=True)
             return None
 
-        if self._buffer:
-            self._silence_ms += self.frame_ms
-            if self._silence_ms >= self.silence_ms_to_close_segment:
-                return self._flush(soft_cut=False)
+        if not self._buffer:
+            # Silêncio antes de qualquer fala começar: não há nada para
+            # bufferizar ainda.
+            return None
+
+        # BUG CRÍTICO (corrigido aqui): um frame abaixo do limiar no meio de
+        # um trecho que já começou NÃO pode ser descartado. Antes, esse
+        # frame era simplesmente jogado fora (nunca ia pro buffer), e só a
+        # contagem de silêncio avançava - então uma sílaba mais fraca, uma
+        # pausa curta entre palavras ou uma consoante mais suave no meio de
+        # uma frase arrancava um pedacinho real do áudio, colando as partes
+        # vizinhas direto uma na outra. Repetido dezenas de vezes ao longo de
+        # um trecho, isso produz um áudio literalmente picotado/recortado -
+        # e por isso a transcrição saía com palavras sem nexo, mesmo com a
+        # captura de áudio 100% íntegra: o Whisper estava transcrevendo
+        # corretamente um áudio que já chegava até ele mutilado.
+        self._buffer.append(frame)
+        self._silence_ms += self.frame_ms
+        if self._silence_ms >= self.silence_ms_to_close_segment:
+            return self._flush(soft_cut=False)
         return None
 
     def flush_remaining(self) -> np.ndarray | None:
@@ -81,15 +97,22 @@ class SegmentChunker:
         emitted, remainder = self._buffer[:cut_index], self._buffer[cut_index:]
 
         segment = np.concatenate(emitted) if emitted else None
-        finished_speech_ms = len(emitted) * self.frame_ms
+        # O buffer agora pode conter frames de silêncio intercalados (pausas
+        # curtas no meio da fala, ou o silêncio final que fechou o
+        # segmento), então a duração de fala precisa ser recontada a partir
+        # do conteúdo real, e não apenas do tamanho do buffer.
+        finished_speech_ms = self._speech_ms_of(emitted)
 
         self._buffer = remainder
-        self._speech_ms = len(remainder) * self.frame_ms
+        self._speech_ms = self._speech_ms_of(remainder)
         self._silence_ms = 0
 
         if segment is None or finished_speech_ms < self.min_segment_ms:
             return None
         return segment
+
+    def _speech_ms_of(self, frames: list[np.ndarray]) -> int:
+        return sum(self.frame_ms for f in frames if frame_rms(f) > self.energy_threshold)
 
     def _find_quietest_cut_point(self) -> int:
         """Retorna o índice (exclusivo) onde cortar o buffer atual: o fim do
