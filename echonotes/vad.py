@@ -28,7 +28,7 @@ class SegmentChunker:
     energy_threshold: float = 0.010
     silence_ms_to_close_segment: int = 700
     min_segment_ms: int = 300
-    max_segment_ms: int = 15000
+    max_segment_ms: int = 6000
 
     _buffer: list[np.ndarray] = field(default_factory=list, init=False)
     _silence_ms: int = field(default=0, init=False)

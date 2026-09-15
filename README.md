@@ -81,7 +81,7 @@ que o auto-updater encontra novas versões). Para gerar localmente:
 
 ```powershell
 pip install pyinstaller
-pyinstaller --onefile --noconsole --name EchoNotes --icon assets/icon.ico --add-data "assets;assets" --collect-all llama_cpp --collect-all faster_whisper run.py
+pyinstaller --onefile --noconsole --name EchoNotes --icon assets/icon.ico --add-data "assets;assets" --collect-all llama_cpp --collect-all faster_whisper --collect-all scipy run.py
 ```
 
 O executável fica em `dist/EchoNotes.exe`, já com o ícone da marca embutido.
@@ -109,6 +109,15 @@ Se a gravação terminar sem nenhuma fala detectada:
 3. Se algo der errado silenciosamente (a versão empacotada não tem console
    para mostrar erros), consulte o arquivo de log em
    `~/.echonotes/echonotes.log` — todas as exceções ficam registradas lá.
+
+Se a transcrição sair com palavras completamente desconexas do que foi
+dito: isso costuma ser perda real de áudio, não erro de reconhecimento —
+a thread de captura (tempo real) pode ficar sem CPU enquanto o Whisper
+transcreve um trecho anterior, perdendo pedaços do áudio sem gerar nenhum
+erro visível. O log mostra um aviso ("Leitura de áudio demorou...") quando
+isso é detectado. O app já reserva CPU para a captura e lê em blocos
+maiores para reduzir esse risco; se ainda acontecer, tente um modelo
+Whisper menor (`small`/`medium`) em "⚙ Configurações" para dar mais folga.
 
 ## Limitações conhecidas
 
