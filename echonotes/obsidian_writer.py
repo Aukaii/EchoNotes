@@ -46,23 +46,21 @@ def build_markdown(
     lines.append(f"# {title}")
     lines.append("")
 
-    lines.append("## Resumo")
-    lines.append("")
-    if summary:
+    if not segments:
+        lines.append("_Nenhuma fala detectada._")
+    elif summary:
+        # A nota final traz só o conteúdo já tratado pelo LLM local (tópicos, dicas,
+        # termos) - a transcrição bruta não entra no arquivo quando o resumo deu certo.
         lines.append(summary.strip())
     else:
-        lines.append("_Resumo automático indisponível. Veja a transcrição completa abaixo._")
-    lines.append("")
-
-    lines.append("## Transcrição completa")
-    lines.append("")
-    if segments:
+        # Resumo indisponível (LLM não carregou/falhou): não descarta a fala
+        # capturada, cai de volta pra transcrição bruta com timestamps.
+        lines.append("_Resumo automático indisponível. Transcrição bruta abaixo:_")
+        lines.append("")
         for seg in segments:
             ts = format_timestamp(seg.start_seconds)
             lines.append(f"**[{ts}]** {seg.text.strip()}")
             lines.append("")
-    else:
-        lines.append("_Nenhuma fala detectada._")
-        lines.append("")
+    lines.append("")
 
     return "\n".join(lines)
