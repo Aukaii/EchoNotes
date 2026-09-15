@@ -119,6 +119,13 @@ isso é detectado. O app já reserva CPU para a captura e lê em blocos
 maiores para reduzir esse risco; se ainda acontecer, tente um modelo
 Whisper menor (`small`/`medium`) em "⚙ Configurações" para dar mais folga.
 
+Se a transcrição continuar desconexa mesmo assim, ative **"Salvar áudio
+bruto de cada trecho (diagnóstico)"** em "⚙ Configurações", grave um trecho
+curto e confira os arquivos `.wav` gerados em `~/.echonotes/debug_audio`
+(atalho em "Ajuda → Abrir pasta de áudio de diagnóstico"). Isso permite
+comparar exatamente o que foi capturado com o que devia ter sido dito —
+essencial para saber se o problema é a captura de áudio ou o Whisper em si.
+
 ## Limitações conhecidas
 
 - O VAD por energia é simples (baseado em volume); em áudio com música de

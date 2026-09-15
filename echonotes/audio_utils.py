@@ -4,10 +4,25 @@ simples, que introduzia artefatos audíveis e provavelmente piorava a
 transcrição em vez de ajudar."""
 from __future__ import annotations
 
+import wave
 from fractions import Fraction
+from pathlib import Path
 
 import numpy as np
 from scipy.signal import resample_poly
+
+
+def save_wav(path: Path, audio: np.ndarray, sample_rate: int) -> None:
+    """Salva um trecho de áudio mono float32 (-1..1) como .wav PCM 16-bit —
+    usado só para diagnóstico (comparar o que foi realmente capturado com o
+    que o Whisper recebeu), com a biblioteca padrão do Python (sem
+    dependência nova)."""
+    pcm16 = (np.clip(audio, -1.0, 1.0) * 32767).astype(np.int16)
+    with wave.open(str(path), "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(pcm16.tobytes())
 
 
 def stretch_duration(audio: np.ndarray, factor: float) -> np.ndarray:
