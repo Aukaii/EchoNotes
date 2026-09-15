@@ -111,20 +111,37 @@ Se a gravação terminar sem nenhuma fala detectada:
    `~/.echonotes/echonotes.log` — todas as exceções ficam registradas lá.
 
 Se a transcrição sair com palavras completamente desconexas do que foi
-dito: isso costuma ser perda real de áudio, não erro de reconhecimento —
-a thread de captura (tempo real) pode ficar sem CPU enquanto o Whisper
+dito, ou o áudio salvo em modo diagnóstico soar "picotado"/recortado: até a
+v0.4.1 havia um bug real no detector de fala (VAD) — qualquer frame de
+30ms cuja energia caísse por um instante abaixo do limiar configurado
+era **descartado por completo**, mesmo no meio de uma frase em andamento
+(uma sílaba mais fraca, uma pausa curtíssima entre palavras). O áudio
+final enviado ao Whisper ficava com pedaços arrancados e as partes
+vizinhas coladas direto uma na outra — um áudio literalmente recortado,
+que o Whisper transcrevia "corretamente" a partir de um conteúdo que já
+chegava mutilado. Corrigido: agora, uma vez que um trecho de fala começou,
+todo frame continua no buffer (mesmo os mais fracos) até haver silêncio
+de verdade por tempo suficiente para fechar o segmento. Outra causa
+relacionada: em falas contínuas sem nenhuma pausa real, o segmento é
+forçado a fechar ao atingir o limite de duração (`max_segment_ms`); um
+corte exatamente no meio de uma palavra também confunde o Whisper, então
+esse corte forçado agora procura o ponto mais silencioso dos últimos
+instantes do trecho em vez de cortar num ponto arbitrário.
+
+Se mesmo assim a transcrição sair ruim, pode ser perda real de áudio: a
+thread de captura (tempo real) pode ficar sem CPU enquanto o Whisper
 transcreve um trecho anterior, perdendo pedaços do áudio sem gerar nenhum
-erro visível. O log mostra um aviso ("Leitura de áudio demorou...") quando
+erro visível — o log mostra um aviso ("Leitura de áudio demorou...") quando
 isso é detectado. O app já reserva CPU para a captura e lê em blocos
 maiores para reduzir esse risco; se ainda acontecer, tente um modelo
 Whisper menor (`small`/`medium`) em "⚙ Configurações" para dar mais folga.
 
-Se a transcrição continuar desconexa mesmo assim, ative **"Salvar áudio
-bruto de cada trecho (diagnóstico)"** em "⚙ Configurações", grave um trecho
-curto e confira os arquivos `.wav` gerados em `~/.echonotes/debug_audio`
-(atalho em "Ajuda → Abrir pasta de áudio de diagnóstico"). Isso permite
-comparar exatamente o que foi capturado com o que devia ter sido dito —
-essencial para saber se o problema é a captura de áudio ou o Whisper em si.
+Para investigar qualquer suspeita de problema no áudio capturado (antes de
+qualquer processamento), ative **"Salvar áudio bruto de cada trecho
+(diagnóstico)"** em "⚙ Configurações", grave um trecho curto e confira os
+arquivos `.wav` gerados em `~/.echonotes/debug_audio` (atalho em "Ajuda →
+Abrir pasta de áudio de diagnóstico") — foi assim que o bug acima foi
+encontrado.
 
 ## Limitações conhecidas
 

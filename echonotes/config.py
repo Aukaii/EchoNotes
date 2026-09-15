@@ -42,6 +42,14 @@ class Config:
     auto_update_check: bool = True
     debug_save_audio: bool = False
 
+    # Valor padrão de max_segment_ms antes da v0.4.2. Esse campo nunca foi
+    # exposto nas Configurações (não há como o usuário tê-lo escolhido de
+    # propósito), então um config.json antigo com exatamente esse valor é
+    # migrado silenciosamente para o novo padrão — do contrário quem já usou
+    # o app uma vez fica preso para sempre no valor antigo, mesmo depois de
+    # atualizar, porque load() sempre prioriza o que está salvo em disco.
+    _LEGACY_MAX_SEGMENT_MS = 15000
+
     @classmethod
     def load(cls) -> "Config":
         if CONFIG_PATH.exists():
@@ -49,6 +57,8 @@ class Config:
                 data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
                 known = {f.name for f in fields(cls)}
                 filtered = {k: v for k, v in data.items() if k in known}
+                if filtered.get("max_segment_ms") == cls._LEGACY_MAX_SEGMENT_MS:
+                    filtered.pop("max_segment_ms")
                 return cls(**{**asdict(cls()), **filtered})
             except (json.JSONDecodeError, TypeError):
                 return cls()
