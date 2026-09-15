@@ -1,8 +1,13 @@
-"""Utilitários de processamento de áudio sem dependências pesadas (só numpy),
-para poderem ser testados sem instalar faster-whisper/soundcard."""
+"""Utilitários de processamento de áudio. Usa scipy (reamostragem
+polifásica, com filtro anti-aliasing) em vez de interpolação linear
+simples, que introduzia artefatos audíveis e provavelmente piorava a
+transcrição em vez de ajudar."""
 from __future__ import annotations
 
+from fractions import Fraction
+
 import numpy as np
+from scipy.signal import resample_poly
 
 
 def stretch_duration(audio: np.ndarray, factor: float) -> np.ndarray:
@@ -16,7 +21,6 @@ def stretch_duration(audio: np.ndarray, factor: float) -> np.ndarray:
     """
     if factor == 1.0 or audio.size == 0:
         return audio
-    new_len = max(1, int(round(audio.shape[0] * factor)))
-    old_idx = np.linspace(0, audio.shape[0] - 1, num=audio.shape[0])
-    new_idx = np.linspace(0, audio.shape[0] - 1, num=new_len)
-    return np.interp(new_idx, old_idx, audio).astype(np.float32)
+    ratio = Fraction(factor).limit_denominator(100)
+    stretched = resample_poly(audio, up=ratio.numerator, down=ratio.denominator)
+    return stretched.astype(np.float32)

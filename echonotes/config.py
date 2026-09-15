@@ -36,7 +36,7 @@ class Config:
     sample_rate: int = 16000
     silence_ms_to_close_segment: int = 700
     min_segment_ms: int = 300
-    max_segment_ms: int = 15000
+    max_segment_ms: int = 6000
     energy_threshold: float = 0.010
     tags: list[str] = field(default_factory=lambda: ["transcricao", "aula"])
     auto_update_check: bool = True

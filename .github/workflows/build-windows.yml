@@ -37,6 +37,7 @@ jobs:
           --add-data "assets;assets"
           --collect-all llama_cpp
           --collect-all faster_whisper
+          --collect-all scipy
           run.py
 
       - name: Publicar release
