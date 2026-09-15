@@ -81,7 +81,7 @@ que o auto-updater encontra novas versões). Para gerar localmente:
 
 ```powershell
 pip install pyinstaller
-pyinstaller --onefile --noconsole --name EchoNotes --icon assets/icon.ico --add-data "assets;assets" run.py
+pyinstaller --onefile --noconsole --name EchoNotes --icon assets/icon.ico --add-data "assets;assets" --collect-all llama_cpp --collect-all faster_whisper run.py
 ```
 
 O executável fica em `dist/EchoNotes.exe`, já com o ícone da marca embutido.
