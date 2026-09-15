@@ -54,4 +54,18 @@ def apply(root: tk.Tk) -> ttk.Style:
     style.configure("Update.TFrame", background=PURPLE_SOFT)
     style.configure("Update.TLabel", background=PURPLE_SOFT, foreground=PURPLE_DARKEST)
 
+    style.configure("Card.TFrame", background=SURFACE)
+    style.configure("Card.TLabel", background=SURFACE, foreground=TEXT)
+    style.configure("CardMuted.TLabel", background=SURFACE, foreground=TEXT_MUTED)
+    style.configure("CardTitle.TLabel", background=SURFACE, foreground=PURPLE_DARK, font=(FONT_FAMILY, 11, "bold"))
+
     return style
+
+
+def make_card(parent) -> ttk.Frame:
+    """Cria um 'card': moldura com fundo branco e borda fina sobre o fundo
+    lavanda da página, para dar hierarquia visual às seções da tela."""
+    outer = tk.Frame(parent, bg=BORDER)
+    inner = ttk.Frame(outer, style="Card.TFrame", padding=14)
+    inner.pack(fill="both", expand=True, padx=1, pady=1)
+    return outer, inner
