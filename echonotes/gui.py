@@ -19,7 +19,7 @@ from tkinter import filedialog, messagebox, ttk
 from . import __version__
 from . import theme
 from .app import TranscriptionSession
-from .config import LLM_VARIANTS, Config
+from .config import APP_DIR, LLM_VARIANTS, Config
 from .logging_setup import LOG_PATH, setup_logging
 from .model_manager import is_llm_model_ready, ensure_llm_model
 from .resources import resource_path
@@ -101,6 +101,20 @@ class SettingsDialog(tk.Toplevel):
             frame, text="Verificar atualizações automaticamente", variable=self.auto_update_var
         ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(6, 0))
 
+        self.debug_audio_var = tk.BooleanVar(value=parent.config.debug_save_audio)
+        ttk.Checkbutton(
+            frame,
+            text="Salvar áudio bruto de cada trecho (diagnóstico)",
+            variable=self.debug_audio_var,
+        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        ttk.Label(
+            frame,
+            text="Salva .wav de cada trecho em ~/.echonotes/debug_audio — use só\n"
+            "temporariamente para investigar problemas de transcrição.",
+            foreground=theme.TEXT_MUTED,
+            font=(theme.FONT_FAMILY, 8),
+        ).grid(row=6, column=0, columnspan=3, sticky="w")
+
         buttons = ttk.Frame(self)
         buttons.pack(fill="x", **pad)
         ttk.Button(buttons, text="Salvar", command=self._save).pack(side="right")
@@ -112,6 +126,7 @@ class SettingsDialog(tk.Toplevel):
         cfg.llm_variant = self.llm_var.get()
         cfg.energy_threshold = round(self.energy_var.get(), 4)
         cfg.auto_update_check = self.auto_update_var.get()
+        cfg.debug_save_audio = self.debug_audio_var.get()
         cfg.save()
         self.destroy()
 
@@ -404,6 +419,7 @@ class MainWindow:
 
         help_menu = tk.Menu(menubar, tearoff=0)
         help_menu.add_command(label="Ver log de erros", command=self._open_log_file)
+        help_menu.add_command(label="Abrir pasta de áudio de diagnóstico", command=self._open_debug_audio_folder)
         help_menu.add_command(label="Sobre o EchoNotes", command=self._show_about)
         menubar.add_cascade(label="Ajuda", menu=help_menu)
 
@@ -429,6 +445,22 @@ class MainWindow:
             messagebox.showinfo("Log", f"Arquivo de log em:\n{LOG_PATH}")
         except Exception:  # noqa: BLE001
             logger.exception("Não foi possível abrir o arquivo de log")
+
+    def _open_debug_audio_folder(self) -> None:
+        debug_dir = APP_DIR / "debug_audio"
+        if not debug_dir.exists():
+            messagebox.showinfo(
+                "Áudio de diagnóstico",
+                "Nenhum áudio salvo ainda. Ative 'Salvar áudio bruto de cada trecho' em "
+                "⚙ Configurações e grave novamente.",
+            )
+            return
+        try:
+            os.startfile(str(debug_dir))  # noqa: só existe no Windows
+        except AttributeError:
+            messagebox.showinfo("Áudio de diagnóstico", f"Pasta em:\n{debug_dir}")
+        except Exception:  # noqa: BLE001
+            logger.exception("Não foi possível abrir a pasta de áudio de diagnóstico")
 
     def _show_about(self) -> None:
         win = tk.Toplevel(self.root)

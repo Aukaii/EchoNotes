@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .audio_capture import LoopbackRecorder
+from .audio_utils import save_wav
 from .config import Config
 from .llm_local import SummarizerUnavailableError, summarize
 from .obsidian_writer import TranscriptSegment, build_markdown
@@ -48,6 +49,12 @@ class TranscriptionSession:
         self._stopping = threading.Event()
         self._segment_queue: "queue.Queue[tuple[float, object]]" = queue.Queue()
         self._frame_count = 0
+        self._segment_index = 0
+        self._debug_audio_dir: Path | None = None
+        if config.debug_save_audio:
+            from .config import APP_DIR
+
+            self._debug_audio_dir = APP_DIR / "debug_audio" / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     def start(self) -> None:
         self.on_status("Carregando modelo Whisper...")
@@ -96,6 +103,15 @@ class TranscriptionSession:
 
     def _handle_segment(self, approx_start_seconds: float, audio) -> None:
         assert self._transcriber is not None
+        if self._debug_audio_dir is not None:
+            self._segment_index += 1
+            self._debug_audio_dir.mkdir(parents=True, exist_ok=True)
+            wav_path = self._debug_audio_dir / f"segmento_{self._segment_index:03d}.wav"
+            try:
+                save_wav(wav_path, audio, self.config.sample_rate)
+                logger.info("Áudio bruto do trecho salvo em: %s", wav_path)
+            except Exception:  # noqa: BLE001 - diagnóstico não pode quebrar a transcrição
+                logger.exception("Falha ao salvar áudio de diagnóstico")
         text = self._transcriber.transcribe_segment(audio)
         if not text:
             return

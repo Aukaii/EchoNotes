@@ -40,6 +40,7 @@ class Config:
     energy_threshold: float = 0.010
     tags: list[str] = field(default_factory=lambda: ["transcricao", "aula"])
     auto_update_check: bool = True
+    debug_save_audio: bool = False
 
     @classmethod
     def load(cls) -> "Config":
