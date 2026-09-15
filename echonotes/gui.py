@@ -8,8 +8,12 @@ sozinho o modelo de resumo (sem precisar instalar nada à parte).
 from __future__ import annotations
 
 import logging
+import os
 import threading
+import time
 import tkinter as tk
+import webbrowser
+from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from . import __version__
@@ -25,6 +29,20 @@ from . import updater
 logger = logging.getLogger(__name__)
 
 UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000  # 6 horas
+GITHUB_URL = "https://github.com/Aukaii/EchoNotes"
+SPEED_OPTIONS = ["1.0x", "1.25x", "1.5x", "1.75x", "2.0x"]
+
+
+def _speed_to_label(speed: float) -> str:
+    label = f"{speed:g}x"
+    return label if label in SPEED_OPTIONS else "1.0x"
+
+
+def _label_to_speed(label: str) -> float:
+    try:
+        return float(label.rstrip("xX"))
+    except ValueError:
+        return 1.0
 
 
 class SettingsDialog(tk.Toplevel):
@@ -45,7 +63,7 @@ class SettingsDialog(tk.Toplevel):
         self.whisper_var = tk.StringVar(value=parent.config.whisper_model)
         ttk.Combobox(
             frame, textvariable=self.whisper_var,
-            values=["tiny", "base", "small", "medium", "large-v3"],
+            values=["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo"],
             state="readonly", width=20,
         ).grid(row=0, column=1, sticky="w", padx=6)
 
@@ -177,6 +195,7 @@ class MainWindow:
         theme.apply(root)
         self._set_window_icon()
         self._build_widgets()
+        self._build_menu()
 
         if is_llm_model_ready(self.config.llm_variant):
             self._after_ready()
@@ -250,8 +269,6 @@ class MainWindow:
         threading.Thread(target=do_update, daemon=True).start()
 
     def _build_widgets(self) -> None:
-        pad = {"padx": 10, "pady": 6}
-
         header = ttk.Frame(self.root, style="Header.TFrame")
         header.pack(fill="x")
         header_inner = ttk.Frame(header, style="Header.TFrame")
@@ -272,25 +289,56 @@ class MainWindow:
         self.update_button.pack(side="right", padx=10, pady=4)
         # update_frame só é exibido (.pack) quando uma atualização é encontrada
 
-        top = ttk.Frame(self.root)
-        top.pack(fill="x", **pad)
-        self.top_frame = top
+        body = ttk.Frame(self.root)
+        body.pack(fill="both", expand=True, padx=14, pady=(12, 14))
+        self.top_frame = body  # referência de posição para o banner de atualização
 
-        ttk.Label(top, text="Título da aula:").grid(row=0, column=0, sticky="w")
-        self.title_var = tk.StringVar(value="Aula sem título")
-        ttk.Entry(top, textvariable=self.title_var, font=(theme.FONT_FAMILY, 11)).grid(
-            row=0, column=1, sticky="we", padx=6
+        self._build_recording_card(body)
+        self._build_status_card(body)
+        self._build_transcript_card(body)
+
+    def _build_recording_card(self, parent) -> None:
+        outer, card = theme.make_card(parent)
+        outer.pack(fill="x", pady=(0, 10))
+        card.columnconfigure(1, weight=1)
+
+        ttk.Label(card, text="Dados da gravação", style="CardTitle.TLabel").grid(
+            row=0, column=0, columnspan=3, sticky="w", pady=(0, 10)
         )
 
-        ttk.Label(top, text="Salvar em:").grid(row=1, column=0, sticky="w")
+        ttk.Label(card, text="Título da aula:", style="Card.TLabel").grid(row=1, column=0, sticky="w")
+        self.title_var = tk.StringVar(value="Aula sem título")
+        ttk.Entry(card, textvariable=self.title_var, font=(theme.FONT_FAMILY, 11)).grid(
+            row=1, column=1, columnspan=2, sticky="we", padx=6, pady=4
+        )
+
+        ttk.Label(card, text="Salvar em:", style="Card.TLabel").grid(row=2, column=0, sticky="w")
         self.output_dir_var = tk.StringVar(value=self.config.output_dir)
-        ttk.Entry(top, textvariable=self.output_dir_var).grid(row=1, column=1, sticky="we", padx=6)
-        ttk.Button(top, text="Escolher pasta...", command=self._choose_dir).grid(row=1, column=2)
+        ttk.Entry(card, textvariable=self.output_dir_var).grid(row=2, column=1, sticky="we", padx=6, pady=4)
+        ttk.Button(card, text="Escolher...", command=self._choose_dir).grid(row=2, column=2, pady=4)
 
-        top.columnconfigure(1, weight=1)
+        ttk.Label(card, text="Velocidade do vídeo:", style="Card.TLabel").grid(row=3, column=0, sticky="w")
+        self.speed_var = tk.StringVar(value=_speed_to_label(self.config.playback_speed))
+        ttk.Combobox(
+            card,
+            textvariable=self.speed_var,
+            values=SPEED_OPTIONS,
+            state="readonly",
+            width=8,
+        ).grid(row=3, column=1, sticky="w", padx=6, pady=4)
+        ttk.Label(
+            card,
+            text="Assistindo em velocidade acelerada? Selecione para manter a precisão da transcrição.",
+            style="CardMuted.TLabel",
+            font=(theme.FONT_FAMILY, 8),
+        ).grid(row=4, column=0, columnspan=3, sticky="w")
 
-        control = ttk.Frame(self.root)
-        control.pack(fill="x", **pad)
+    def _build_status_card(self, parent) -> None:
+        outer, card = theme.make_card(parent)
+        outer.pack(fill="x", pady=(0, 10))
+
+        control = ttk.Frame(card, style="Card.TFrame")
+        control.pack(fill="x")
         self.toggle_button = tk.Button(
             control,
             text="▶  Iniciar gravação",
@@ -307,20 +355,28 @@ class MainWindow:
         self.toggle_button.pack(side="left", fill="x", expand=True)
         ttk.Button(control, text="⚙ Configurações", command=self._open_settings).pack(side="left", padx=10)
 
+        status_row = ttk.Frame(card, style="Card.TFrame")
+        status_row.pack(fill="x", pady=(10, 0))
         self.status_var = tk.StringVar(value="Pronto.")
-        ttk.Label(self.root, textvariable=self.status_var, style="Muted.TLabel").pack(fill="x", **pad)
+        ttk.Label(status_row, textvariable=self.status_var, style="CardMuted.TLabel").pack(side="left")
+        self.timer_var = tk.StringVar(value="")
+        ttk.Label(status_row, textvariable=self.timer_var, style="CardTitle.TLabel").pack(side="right")
 
-        level_frame = ttk.Frame(self.root)
-        level_frame.pack(fill="x", **pad)
-        ttk.Label(level_frame, text="Nível de áudio:").pack(side="left")
+        level_frame = ttk.Frame(card, style="Card.TFrame")
+        level_frame.pack(fill="x", pady=(8, 0))
+        ttk.Label(level_frame, text="Nível de áudio:", style="Card.TLabel").pack(side="left")
         self.level_bar = ttk.Progressbar(level_frame, length=200, maximum=0.05, mode="determinate")
         self.level_bar.pack(side="left", padx=6)
         self.level_label_var = tk.StringVar(value="-- (limiar: --)")
-        ttk.Label(level_frame, textvariable=self.level_label_var, style="Muted.TLabel").pack(side="left")
+        ttk.Label(level_frame, textvariable=self.level_label_var, style="CardMuted.TLabel").pack(side="left")
 
-        ttk.Label(self.root, text="Transcrição ao vivo:").pack(anchor="w", **pad)
+    def _build_transcript_card(self, parent) -> None:
+        outer, card = theme.make_card(parent)
+        outer.pack(fill="both", expand=True)
+
+        ttk.Label(card, text="Transcrição ao vivo", style="CardTitle.TLabel").pack(anchor="w", pady=(0, 8))
         self.transcript_box = tk.Text(
-            self.root,
+            card,
             wrap="word",
             state="disabled",
             font=(theme.FONT_FAMILY, 10),
@@ -330,14 +386,73 @@ class MainWindow:
             selectbackground=theme.PURPLE_SOFT,
             selectforeground=theme.TEXT,
             relief="flat",
-            borderwidth=1,
-            highlightthickness=1,
-            highlightbackground=theme.BORDER,
-            highlightcolor=theme.PURPLE,
-            padx=8,
-            pady=8,
+            borderwidth=0,
+            highlightthickness=0,
+            padx=0,
+            pady=0,
         )
-        self.transcript_box.pack(fill="both", expand=True, **pad)
+        self.transcript_box.pack(fill="both", expand=True)
+
+    def _build_menu(self) -> None:
+        menubar = tk.Menu(self.root)
+
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Abrir pasta de destino", command=self._open_output_folder)
+        file_menu.add_separator()
+        file_menu.add_command(label="Sair", command=self.root.destroy)
+        menubar.add_cascade(label="Arquivo", menu=file_menu)
+
+        help_menu = tk.Menu(menubar, tearoff=0)
+        help_menu.add_command(label="Ver log de erros", command=self._open_log_file)
+        help_menu.add_command(label="Sobre o EchoNotes", command=self._show_about)
+        menubar.add_cascade(label="Ajuda", menu=help_menu)
+
+        self.root.config(menu=menubar)
+
+    def _open_output_folder(self) -> None:
+        path = Path(self.output_dir_var.get())
+        path.mkdir(parents=True, exist_ok=True)
+        try:
+            os.startfile(str(path))  # noqa: só existe no Windows, plataforma-alvo do app
+        except AttributeError:
+            messagebox.showinfo("Pasta de destino", str(path))
+        except Exception:  # noqa: BLE001
+            logger.exception("Não foi possível abrir a pasta de destino")
+
+    def _open_log_file(self) -> None:
+        if not LOG_PATH.exists():
+            messagebox.showinfo("Log", "Ainda não há nada registrado no log.")
+            return
+        try:
+            os.startfile(str(LOG_PATH))  # noqa: só existe no Windows
+        except AttributeError:
+            messagebox.showinfo("Log", f"Arquivo de log em:\n{LOG_PATH}")
+        except Exception:  # noqa: BLE001
+            logger.exception("Não foi possível abrir o arquivo de log")
+
+    def _show_about(self) -> None:
+        win = tk.Toplevel(self.root)
+        win.title("Sobre o EchoNotes")
+        win.configure(bg=theme.BG)
+        win.resizable(False, False)
+        win.transient(self.root)
+
+        frame = ttk.Frame(win, padding=24)
+        frame.pack()
+        try:
+            about_icon = tk.PhotoImage(file=str(resource_path("assets/icon_mark.png"))).subsample(10, 10)
+            win._about_icon = about_icon  # mantém referência viva
+            ttk.Label(frame, image=about_icon).pack(pady=(0, 10))
+        except Exception:  # noqa: BLE001
+            logger.exception("Não foi possível carregar o ícone em Sobre")
+        ttk.Label(frame, text=f"EchoNotes v{__version__}", font=(theme.FONT_FAMILY, 14, "bold")).pack()
+        ttk.Label(
+            frame, text="Transcrição de áudio 100% local, para o Obsidian.", style="Muted.TLabel"
+        ).pack(pady=(4, 12))
+        link = ttk.Label(frame, text="github.com/Aukaii/EchoNotes", foreground=theme.PURPLE, cursor="hand2")
+        link.pack()
+        link.bind("<Button-1>", lambda _e: webbrowser.open(GITHUB_URL))
+        ttk.Button(frame, text="Fechar", command=win.destroy).pack(pady=(16, 0))
 
     def _open_settings(self) -> None:
         SettingsDialog(self)
@@ -375,6 +490,7 @@ class MainWindow:
 
     def _start(self) -> None:
         self.config.output_dir = self.output_dir_var.get()
+        self.config.playback_speed = _label_to_speed(self.speed_var.get())
         self.config.save()
 
         self.transcript_box.configure(state="normal")
@@ -404,9 +520,20 @@ class MainWindow:
         self._recording = recording
         if recording:
             self.toggle_button.configure(text="■  Parar e salvar", bg=theme.DANGER, activebackground=theme.DANGER_DARK)
+            self._recording_start = time.monotonic()
+            self._tick_timer()
         else:
             self.toggle_button.configure(text="▶  Iniciar gravação", bg=theme.PURPLE, activebackground=theme.PURPLE_DARK)
+            self.timer_var.set("")
         self.toggle_button.configure(state="normal")
+
+    def _tick_timer(self) -> None:
+        if not self._recording:
+            return
+        elapsed = int(time.monotonic() - self._recording_start)
+        minutes, seconds = divmod(elapsed, 60)
+        self.timer_var.set(f"⏱ {minutes:02d}:{seconds:02d}")
+        self.root.after(1000, self._tick_timer)
 
     def _stop(self) -> None:
         if self.session is None:

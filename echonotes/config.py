@@ -27,14 +27,16 @@ DEFAULT_LLM_VARIANT = "equilibrado (3B, recomendado)"
 @dataclass
 class Config:
     output_dir: str = str(Path.home() / "Documents" / "EchoNotes")
-    whisper_model: str = "small"
+    whisper_model: str = "large-v3-turbo"
     whisper_device: str = "cpu"
     whisper_compute_type: str = "int8"
     language: str = "pt"
+    playback_speed: float = 1.0
     llm_variant: str = DEFAULT_LLM_VARIANT
     sample_rate: int = 16000
     silence_ms_to_close_segment: int = 700
     min_segment_ms: int = 300
+    max_segment_ms: int = 15000
     energy_threshold: float = 0.010
     tags: list[str] = field(default_factory=lambda: ["transcricao", "aula"])
     auto_update_check: bool = True

@@ -51,6 +51,22 @@ def test_short_speech_below_min_duration_is_discarded():
     assert result is None
 
 
+def test_continuous_speech_force_closes_at_max_duration():
+    chunker = SegmentChunker(
+        sample_rate=16000,
+        frame_ms=30,
+        min_segment_ms=10,
+        max_segment_ms=300,
+    )
+    result = None
+    for _ in range(10):
+        result = chunker.push(speech_frame())
+        if result is not None:
+            break
+    assert result is not None
+    assert result.shape[0] == 480 * 10
+
+
 def test_flush_remaining_returns_buffered_speech():
     chunker = SegmentChunker(sample_rate=16000, frame_ms=30, min_segment_ms=10)
     chunker.push(speech_frame())

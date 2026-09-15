@@ -28,6 +28,7 @@ class SegmentChunker:
     energy_threshold: float = 0.010
     silence_ms_to_close_segment: int = 700
     min_segment_ms: int = 300
+    max_segment_ms: int = 15000
 
     _buffer: list[np.ndarray] = field(default_factory=list, init=False)
     _silence_ms: int = field(default=0, init=False)
@@ -35,7 +36,10 @@ class SegmentChunker:
 
     def push(self, frame: np.ndarray) -> np.ndarray | None:
         """Alimenta um frame de áudio. Retorna um segmento finalizado (np.ndarray)
-        quando um trecho de fala é seguido por silêncio suficiente, ou None.
+        quando um trecho de fala é seguido por silêncio suficiente, ou quando a
+        fala contínua atinge max_segment_ms (fala sem pausas nunca fecharia um
+        segmento sozinha, o que impediria a transcrição ao vivo e degradaria
+        muito a qualidade do Whisper em áudios muito longos).
         """
         is_speech = frame_rms(frame) > self.energy_threshold
 
@@ -43,6 +47,8 @@ class SegmentChunker:
             self._buffer.append(frame)
             self._speech_ms += self.frame_ms
             self._silence_ms = 0
+            if self._speech_ms >= self.max_segment_ms:
+                return self._flush()
             return None
 
         if self._buffer:

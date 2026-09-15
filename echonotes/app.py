@@ -39,6 +39,7 @@ class TranscriptionSession:
             energy_threshold=config.energy_threshold,
             silence_ms_to_close_segment=config.silence_ms_to_close_segment,
             min_segment_ms=config.min_segment_ms,
+            max_segment_ms=config.max_segment_ms,
         )
         self._transcriber: Transcriber | None = None
         self._segments: list[TranscriptSegment] = []
@@ -55,6 +56,7 @@ class TranscriptionSession:
             device=self.config.whisper_device,
             compute_type=self.config.whisper_compute_type,
             language=self.config.language,
+            playback_speed=self.config.playback_speed,
         )
         self._start_time = time.monotonic()
         self._stopping.clear()

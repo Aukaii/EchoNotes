@@ -30,8 +30,9 @@ internet, não há custo de API e **não é preciso instalar nada separado**
    escolher — aponte direto para uma pasta dentro do seu vault do Obsidian.
 
 Na **primeira execução**, o próprio app baixa o modelo de resumo (~1-2 GB,
-uma vez só, com barra de progresso) e prepara o modelo de transcrição.
-Depois disso funciona 100% offline.
+com barra de progresso) e o modelo de transcrição Whisper `large-v3-turbo`
+(~1,5 GB) — juntos, cerca de 3 GB baixados uma única vez. Depois disso
+funciona 100% offline.
 
 ## Usando a versão pronta (recomendado)
 
@@ -119,10 +120,16 @@ Se a gravação terminar sem nenhuma fala detectada:
 - O LLM local de resumo (Qwen 2.5, 1.5B ou 3B) é bem mais limitado que
   modelos como GPT/Claude; a qualidade do resumo reflete isso. É possível
   trocar o tamanho do modelo em "⚙ Configurações".
-- CPUs mais fracas podem transcrever com atraso perceptível usando modelos
-  Whisper maiores que `small`. Com GPU NVIDIA, é possível editar
-  `~/.echonotes/config.json` (gerado após o primeiro uso) para usar
-  `"whisper_device": "cuda"` e `"whisper_compute_type": "float16"`.
+- O modelo Whisper padrão é o `large-v3-turbo` (melhor precisão em português
+  com boa velocidade em CPU). Em computadores mais fracos, troque para
+  `small` ou `medium` em "⚙ Configurações" se a transcrição atrasar demais.
+  Com GPU NVIDIA, é possível editar `~/.echonotes/config.json` (gerado após
+  o primeiro uso) para usar `"whisper_device": "cuda"` e
+  `"whisper_compute_type": "float16"`.
+- Vídeos/aulas reproduzidos em velocidade acelerada (1.25x-2x) reduzem a
+  precisão do Whisper; use o seletor de velocidade na tela principal para
+  compensar (o áudio é esticado de volta à velocidade normal antes de
+  transcrever — só afeta a transcrição, nunca o que você ouve).
 - A atualização automática exige que o Release no GitHub contenha um arquivo
   chamado exatamente `EchoNotes.exe` (é o nome usado pelo workflow).
 
